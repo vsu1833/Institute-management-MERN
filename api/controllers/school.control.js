@@ -1,83 +1,85 @@
-// This line imports the 'bcrypt' library, which helps us securely store passwords.
-// The 'bcrypt' library is used to securely hash passwords, protecting them from unauthorized access and ensuring that even if the database is compromised, the actual passwords remain safe from attackers.
 const bcrypt = require("bcrypt");
-
-// This line imports the 'formidable' library, which helps us handle file uploads.
 const formidable = require("formidable");
-
-// This line loads the environment variables from the .env file, so we can use them in our code.
 require("dotenv").config();
-
-// This line imports the 'schoolModel' from the '../models/school_model' file.
 const schoolModel = require("../models/school_model");
-const authMiddleware = require("../auth/auth");
-// This line imports the 'fs' library, which helps us work with files.
 const fs = require("fs");
-
-// This line imports the 'path' library, which helps us work with file paths.
 const path = require("path");
 const jwt = require("jsonwebtoken");
-// This line exports an object with a method called 'registerSchool'.
+
+// Ensure upload directory exists
+const uploadDir = path.join(
+  process.cwd(),
+  "public",
+  "images",
+  "uploaded",
+  "school"
+);
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 module.exports = {
   registerSchool: async (req, res) => {
-    // This line creates a new instance of the 'formidable.IncomingForm' class.
     const form = new formidable.IncomingForm();
 
-    // This line parses the incoming request and saves the form data and uploaded files to the 'fields' and 'files' variables.
     form.parse(req, async (err, fields, files) => {
       if (err) {
-        // This line sends a response with a status code of 400 and an error message if there was an error parsing the files.
-        return res.status(400).send("Error parsing the files");
+        return res.status(400).json({
+          success: false,
+          message: "Error parsing form data",
+        });
       }
-      try {
-        // This line gets the first uploaded file from the 'files' object.
-        const photo = files.image[0];
 
-        // This line gets the file path of the uploaded file.
+      try {
+        const photo = files.image[0];
+        if (!photo) {
+          return res.status(400).json({
+            success: false,
+            message: "School image is required",
+          });
+        }
         let filepath = photo.filepath;
 
-        // This line replaces any spaces in the original file name with underscores.
-        let originalFilename = photo.originalFilename.replace(" ", "_");
-
-        // This line creates a new file path using the current directory, the 'SCHOOL_IMAGE_PATH' environment variable, and the original file name.
-        let newpath = path.join(
+        // Process image upload
+        const originalFilename = photo.originalFilename.replace(" ", "_"); //phot one
+        const newPath = path.join(
           __dirname,
           process.env.SCHOOL_IMAGE_PATH,
           originalFilename
         );
 
-        // This line reads the contents of the uploaded file and saves it to the new file path.
-        let photoData = fs.readFileSync(filepath);
-        fs.writeFileSync(newpath, photoData);
+        // Move uploaded file
+        fs.renameSync(photo.filepath, newPath);
 
-        // This line generates a salt for hashing the password.
+        // Hash password
         const salt = bcrypt.genSaltSync(10);
-
-        // This line hashes the password using the salt.
         const hashedPassword = bcrypt.hashSync(fields.password[0], salt);
 
-        // This line creates a new instance of the 'schoolModel' with the form data and the hashed password.
+        // Create school record
         const newSchool = new schoolModel({
           school_name: fields.school_name[0],
           email: fields.email[0],
           owner_name: fields.owner_name[0],
+          school_image: originalFilename,
           password: hashedPassword,
         });
 
-        // This line saves the new school to the database and waits for it to complete.
         const savedSchool = await newSchool.save();
 
-        // This line sends a response with a status code of 200, the saved school data, and a success message.
-        res.status(200).json({
+        res.status(201).json({
           success: true,
-          data: savedSchool,
+          data: {
+            id: savedSchool._id,
+            school_name: savedSchool.school_name,
+            email: savedSchool.email,
+            image_url: savedSchool.school_image,
+          },
           message: "School registered successfully",
         });
       } catch (error) {
-        // This line sends a response with a status code of 500 and an error message if there was an error registering the school.
         res.status(500).json({
           success: false,
-          message: "An error occurred while registering the school",
+          message: "Error registering school",
           error: error.message,
         });
       }

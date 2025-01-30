@@ -24,20 +24,17 @@ app.use(cors());
 // Cookies are small pieces of information that websites store on a person's computer to remember things like their login information.
 app.use(cookieParser());
 
-
-
 //TODO: import routers
 
 const schoolRouter = require("./routers/school.router");
 
 //TODO: end routers
 
-
-
-
 // Connect to MongoDB
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/schoolManagement2025")
+  .connect(
+    process.env.MONGODB_URI || "mongodb://localhost:27017/schoolManagement2025"
+  )
   .then(() => {
     console.log("Connected to MongoDB");
   })
@@ -45,18 +42,21 @@ mongoose
     console.log("Error connecting to MongoDB", err);
   });
 
-
+// Add these before your routes
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // TODO: routers
 
-
 app.use("/api/school", schoolRouter);
 
-
+app.use(
+  cors({
+    origin: "http://localhost:3000", // Change to your frontend port
+    credentials: true,
+  })
+);
 //TODO: end routers
-
-
-
 
 /** Port number for server to listen on. If there's no number set in computer's special file, uses 5001  */
 const PORT = process.env.PORT || 5001; // Changed to 5001 to avoid EADDRINUSE error

@@ -17,5 +17,6 @@ router.get("/login", loginSchool);
 // Only authenticated schools can update their data
 router.patch("/update", authMiddleware(["school"]), updateSchool);
 router.get("/fetch-single", authMiddleware(["school"]), getSchoolOwnData);
+router.post("/register", registerSchool);
 
 module.exports = router;
